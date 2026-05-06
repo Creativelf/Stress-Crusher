@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="压力粉碎机">
+<title>压力粉碎机 - 00后专属解压游戏</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f1a;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(ellipse at 50% 80%, #1a1a3e 0%, #0f0f1a 70%);
+}
+/* 顶部信息栏 */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+#hud .hud-item {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+#hud .hud-value {
+  color: #0ff;
+  font-size: 24px;
+  margin-left: 6px;
+}
+#combo-display {
+  position: absolute;
+  top: 60px; right: 20px;
+  color: #ff0;
+  font-size: 32px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-shadow: 0 0 20px rgba(255,255,0,0.8);
+  z-index: 100;
+}
+/* 开始界面 */
+#start-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(15,15,26,0.95);
+  z-index: 200;
+}
+#start-screen h1 {
+  font-size: 48px;
+  color: #fff;
+  margin-bottom: 10px;
+  text-shadow: 0 0 30px #f0f, 0 0 60px #f0f;
+}
+#start-screen .subtitle {
+  color: #aaa;
+  font-size: 16px;
+  margin-bottom: 40px;
+}
+#start-screen .instructions {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 30px;
+  text-align: center;
+  line-height: 1.8;
+}
+.btn {
+  padding: 14px 48px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient(135deg, #f0f, #0ff);
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 30px rgba(255,0,255,0.4);
+}
+.btn:hover { transform: scale(1.05); box-shadow: 0 0 40px rgba(255,0,255,0.6); }
+.btn:active { transform: scale(0.98); }
+/* 压力气泡 */
+.pressure {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 6px rgba(0,0,0,0.5);
+  transition: transform 0.1s;
+  animation: float 2s ease-in-out infinite alternate;
+  z-index: 10;
+}
+.pressure:active { transform: scale(0.8) !important; }
+@keyframes float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-10px); }
+}
+/* 粒子 */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 50;
+}
+/* 飞出文字 */
+.fly-text {
+  position: absolute;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 60;
+  animation: flyUp 0.8s ease-out forwards;
+}
+@keyframes flyUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+}
+/* 结算界面 */
+#end-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(15,15,26,0.95);
+  z-index: 200;
+}
+#end-screen h2 {
+  font-size: 36px;
+  color: #fff;
+  margin-bottom: 10px;
+}
+#end-screen .final-score {
+  font-size: 72px;
+  font-weight: bold;
+  color: #0ff;
+  text-shadow: 0 0 30px rgba(0,255,255,0.5);
+  margin: 20px 0;
+}
+#end-screen .msg {
+  color: #aaa;
+  font-size: 16px;
+  margin-bottom: 10px;
+  text-align: center;
+  line-height: 1.8;
+  max-width: 400px;
+}
+#end-screen .stats {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 30px;
+}
+/* 背景网格 */
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  z-index: 0;
+}
+/* 安装提示 */
+#install-prompt {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,0,255,0.2);
+  border: 1px solid rgba(255,0,255,0.4);
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-size: 14px;
+  display: none;
+  z-index: 300;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <div class="bg-grid"></div>
+
+  <!-- HUD -->
+  <div id="hud" style="display:none">
+    <div class="hud-item">时间 <span class="hud-value" id="timer">60</span></div>
+    <div class="hud-item">分数 <span class="hud-value" id="score">0</span></div>
+  </div>
+  <div id="combo-display"></div>
+
+  <!-- 开始界面 -->
+  <div id="start-screen">
+    <h1>压力粉碎机</h1>
+    <div class="subtitle">00后专属解压小游戏</div>
+    <div class="instructions">
+      点击/触摸冒出的压力气泡<br>
+      连击获得Combo加分<br>
+      60秒内消灭尽可能多的压力！
+    </div>
+    <button class="btn" id="start-btn">开始发泄</button>
+  </div>
+
+  <!-- 结算界面 -->
+  <div id="end-screen">
+    <h2>本轮战果</h2>
+    <div class="final-score" id="final-score">0</div>
+    <div class="msg" id="end-msg"></div>
+    <div class="stats" id="end-stats"></div>
+    <button class="btn" id="restart-btn">再来一轮</button>
+  </div>
+
+  <!-- PWA安装提示 -->
+  <div id="install-prompt" onclick="installPWA()">添加到主屏幕，随时解压</div>
+</div>
+
+<script>
+// 游戏状态
+const state = {
+  score: 0,
+  time: 60,
+  combo: 0,
+  maxCombo: 0,
+  totalSmashed: 0,
+  running: false,
+  timer: null,
+  spawnTimer: null,
+};
+
+// 压力元素
+const pressures = [
+  { text: '996', color: '#ff4444' },
+  { text: '内卷', color: '#ff6600' },
+  { text: '房价', color: '#ff0066' },
+  { text: '催婚', color: '#cc00ff' },
+  { text: '加班', color: '#ff3333' },
+  { text: '考研', color: '#9933ff' },
+  { text: '考公', color: '#6633cc' },
+  { text: '房贷', color: '#ff0099' },
+  { text: '房租', color: '#ee4444' },
+  { text: 'PUA', color: '#ff00cc' },
+  { text: '画饼', color: '#dd4400' },
+  { text: '裁员', color: '#cc0033' },
+  { text: '学历贬值', color: '#9900ff' },
+  { text: '容貌焦虑', color: '#ff0099' },
+  { text: '社交压力', color: '#cc33ff' },
+  { text: '内耗', color: '#ff4488' },
+  { text: '摆烂', color: '#666699' },
+  { text: '被优化', color: '#ff2200' },
+];
+
+// 结算语录
+const endMessages = [
+  '打得好！生活就是需要这样的态度！',
+  '压力已粉碎，明天继续加油！',
+  '记住，你比这些压力更强大！',
+  '发泄完毕，深呼吸，世界没那么糟。',
+  '每一拳都是对不合理说不！',
+  '你已经很努力了，给自己一个拥抱吧。',
+  '这些压力配不上你的才华！',
+  '打完收工，去喝杯奶茶犒劳自己吧。',
+];
+
+// DOM
+const container = document.getElementById('game-container');
+const hud = document.getElementById('hud');
+const timerEl = document.getElementById('timer');
+const scoreEl = document.getElementById('score');
+const comboEl = document.getElementById('combo-display');
+const startScreen = document.getElementById('start-screen');
+const endScreen = document.getElementById('end-screen');
+const finalScoreEl = document.getElementById('final-score');
+const endMsgEl = document.getElementById('end-msg');
+const endStatsEl = document.getElementById('end-stats');
+
+// 音效（Web Audio API）
+let audioCtx;
+function playSound(freq, duration) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const t = audioCtx.currentTime;
+
+  // 主音 - 清脆的叮
+  const osc1 = audioCtx.createOscillator();
+  const gain1 = audioCtx.createGain();
+  osc1.type = 'sine';
+  osc1.frequency.setValueAtTime(freq, t);
+  gain1.gain.setValueAtTime(0.2, t);
+  gain1.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc1.connect(gain1);
+  gain1.connect(audioCtx.destination);
+  osc1.start(t);
+  osc1.stop(t + duration);
+
+  // 泛音 - 增加亮度和成就感
+  const osc2 = audioCtx.createOscillator();
+  const gain2 = audioCtx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(freq * 2, t);
+  gain2.gain.setValueAtTime(0.08, t);
+  gain2.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.6);
+  osc2.connect(gain2);
+  gain2.connect(audioCtx.destination);
+  osc2.start(t);
+  osc2.stop(t + duration);
+}
+
+// 开始游戏
+function startGame() {
+  state.score = 0;
+  state.time = 60;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.totalSmashed = 0;
+  state.running = true;
+
+  scoreEl.textContent = '0';
+  timerEl.textContent = '60';
+  startScreen.style.display = 'none';
+  endScreen.style.display = 'none';
+  hud.style.display = 'flex';
+
+  // 清除残留气泡
+  document.querySelectorAll('.pressure').forEach(p => p.remove());
+
+  // 计时器
+  state.timer = setInterval(() => {
+    state.time--;
+    timerEl.textContent = state.time;
+    if (state.time <= 0) endGame();
+  }, 1000);
+
+  // 生成压力
+  spawnPressure();
+  scheduleNextSpawn();
+}
+
+function scheduleNextSpawn() {
+  if (!state.running) return;
+  const delay = Math.max(300, 1200 - state.score * 3); // 越打越快
+  state.spawnTimer = setTimeout(() => {
+    spawnPressure();
+    scheduleNextSpawn();
+  }, delay);
+}
+
+// 生成一个压力气泡
+function spawnPressure() {
+  if (!state.running) return;
+
+  const p = pressures[Math.floor(Math.random() * pressures.length)];
+  const el = document.createElement('div');
+  el.className = 'pressure';
+  el.textContent = p.text;
+
+  const size = 60 + Math.random() * 40;
+  const maxX = window.innerWidth - size - 20;
+  const maxY = window.innerHeight - size - 100;
+  const x = 20 + Math.random() * maxX;
+  const y = 80 + Math.random() * maxY;
+
+  el.style.cssText = `
+    left: ${x}px; top: ${y}px;
+    width: ${size}px; height: ${size}px;
+    font-size: ${size > 80 ? 16 : 13}px;
+    background: radial-gradient(circle at 35% 35%, ${p.color}, ${p.color}88);
+    box-shadow: 0 0 20px ${p.color}66, inset 0 -4px 8px rgba(0,0,0,0.3);
+    animation-delay: ${Math.random() * 2}s;
+  `;
+
+  el.addEventListener('click', (e) => smashPressure(e, el, p));
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    smashPressure(e, el, p);
+  }, { passive: false });
+
+  container.appendChild(el);
+
+  // 自动消失
+  setTimeout(() => {
+    if (el.parentNode) {
+      el.style.transition = 'opacity 0.3s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 300);
+      state.combo = 0;
+      updateCombo();
+    }
+  }, 2500 + Math.random() * 1500);
+}
+
+// 击碎压力
+function smashPressure(e, el, p) {
+  if (!state.running || !el.parentNode) return;
+  e.stopPropagation();
+
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  // 分数
+  state.combo++;
+  state.totalSmashed++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  const comboMultiplier = Math.min(state.combo, 10);
+  const points = 10 * comboMultiplier;
+  state.score += points;
+  scoreEl.textContent = state.score;
+
+  // 粒子爆炸
+  createParticles(cx, cy, p.color, 12);
+
+  // 飞出文字
+  createFlyText(cx, cy, `+${points}`, comboMultiplier > 1 ? '#ff0' : '#fff');
+
+  // Combo显示
+  updateCombo();
+
+  // 音效 - 轻快上扬的叮咚声
+  const baseFreq = 800 + state.combo * 60;
+  playSound(baseFreq, 0.18);
+  setTimeout(() => playSound(baseFreq * 1.25, 0.15), 60);
+
+  el.remove();
+}
+
+// 生成粒子
+function createParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 4 + Math.random() * 8;
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const dist = 40 + Math.random() * 60;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist;
+
+    p.style.cssText = `
+      left: ${x}px; top: ${y}px;
+      width: ${size}px; height: ${size}px;
+      background: ${color};
+      box-shadow: 0 0 ${size}px ${color};
+    `;
+    container.appendChild(p);
+
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+    ], { duration: 400 + Math.random() * 200, easing: 'ease-out' });
+
+    setTimeout(() => p.remove(), 700);
+  }
+}
+
+// 飞出文字
+function createFlyText(x, y, text, color) {
+  const el = document.createElement('div');
+  el.className = 'fly-text';
+  el.textContent = text;
+  el.style.cssText = `left: ${x}px; top: ${y}px; color: ${color}; font-size: ${16 + state.combo}px;`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+// 更新Combo
+function updateCombo() {
+  if (state.combo >= 3) {
+    comboEl.textContent = `${state.combo}x COMBO!`;
+    comboEl.style.opacity = '1';
+    comboEl.style.fontSize = `${Math.min(32 + state.combo * 2, 60)}px`;
+  } else {
+    comboEl.style.opacity = '0';
+  }
+}
+
+// 结束游戏
+function endGame() {
+  state.running = false;
+  clearInterval(state.timer);
+  clearTimeout(state.spawnTimer);
+  hud.style.display = 'none';
+  comboEl.style.opacity = '0';
+
+  document.querySelectorAll('.pressure').forEach(p => p.remove());
+
+  finalScoreEl.textContent = state.score;
+  endMsgEl.textContent = endMessages[Math.floor(Math.random() * endMessages.length)];
+  endStatsEl.innerHTML = `粉碎压力: ${state.totalSmashed}个 | 最高连击: ${state.maxCombo}x`;
+  endScreen.style.display = 'flex';
+
+  playSound(523, 0.3);
+  setTimeout(() => playSound(659, 0.3), 150);
+  setTimeout(() => playSound(784, 0.5), 300);
+}
+
+// 事件绑定
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('start-btn').addEventListener('touchend', (e) => { e.preventDefault(); startGame(); });
+document.getElementById('restart-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('touchend', (e) => { e.preventDefault(); startGame(); });
+
+// PWA
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-prompt').style.display = 'block';
+});
+
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  document.getElementById('install-prompt').style.display = 'none';
+}
+
+// 注册Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
